@@ -1,0 +1,140 @@
+
+\documentclass[11pt,a4paper]{article}
+\usepackage[hyperref]{fusionIR}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{fontspec}
+\setmainfont{Lucida Grande} % Или другой шрифт, поддерживающий кириллицу
+% \usepackage[T2A]{fontenc}
+% \usepackage[utf8]{inputenc}
+\usepackage[russian,english]{babel}
+\def\Plus{\texttt{+}}
+\def\Minus{\texttt{-}}
+\renewcommand{\UrlFont}{\ttfamily\small}
+\usepackage{times}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{microtype}
+\usepackage{minted}
+\usepackage[a4paper, margin=0.5in]{geometry} % Поля страницы
+\usepackage{etoolbox}
+\usepackage{changepage}
+
+% Отключение отступов для minted
+\AtBeginEnvironment{minted}{\setlength{\parindent}{0pt}} 
+
+\aclfinalcopy %
+
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{pgfplots}
+\pgfplotsset{width=.9\columnwidth}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usepackage{xspace}
+\usepackage{xargs}
+\usepackage[colorinlistoftodos,prependcaption,textsize=tiny]{todonotes}
+\usepackage{multirow}
+\usetikzlibrary{positioning}
+\usepackage{pifont}
+\newcommand{\cmark}{\text{\ding{51}}}
+\newcommand{\xmark}{\text{\ding{55}}}
+\usepackage{makecell}
+
+
+\newcommand\BibTeX{B\textsc{ib}\TeX}
+\newcommand\ignore[1]{}
+\renewcommand{\UrlFont}{\ttfamily\small}
+
+\def\model/{DPR}
+
+\newcommand{\barlas}[1]{{\color{blue} [Barlas]: {#1}}}
+\newcommand{\danqi}[1]{{\color{magenta} [Danqi: {#1}]}}
+\newcommand{\scott}[1]{{\color{purple} [Scott: {#1}]}}
+\newcommand{\vladk}[1]{{\color{red} [Vlad: {#1}]}}
+\newcommand{\sergey}[1]{{\color{violet} [Sergey: {#1}]}}
+\newcommand{\sewon}[1]{{\color{purple!50!orange} [Sewon: {#1}]}}
+
+
+
+\newcommandx{\sy}[2][1=]{\todo[linecolor=purple,backgroundcolor=purple!10,bordercolor=purple,#1]{Scott: #2}\xspace}
+\newcommandx{\dc}[2][1=]{\todo[linecolor=blue,backgroundcolor=blue!10,bordercolor=blue,#1]{Danqi: #2}\xspace}
+
+
+
+
+\newcommand\sys[1]{\textsc{#1}}
+\newcommand\ti[1]{\textit{#1}}
+\newcommand\tf[1]{\textbf{#1}}
+\newcommand\ttt[1]{\texttt{#1}}
+\newcommand\mf[1]{\mathbf{#1}}
+
+\newcommand*\samethanks[1][\value{footnote}]{\footnotemark[#1]}
+
+\pgfplotsset{compat=1.14}
+
+\title{Семантический поиск с дополнением контекстных ключевых слов через их объяснение}
+
+\author{\makecell{Igor Tarlinskiy\thanks{\hspace{.06in}Equal contribution}, Elena Kreines, Sergey Glavatskii} \\
+Moscow State University [Theoretical Computer Science]\quad\quad \\
+Moscow State University [Theoretical Computer Science]\quad\quad\\
+Moscow State University [Theoretical Computer Science]\quad\quad\\
+\texttt{itarlinskiy@gmail.com}\\
+\texttt{elena.kreines@gmail.com}\\
+\texttt{glavatsky\_st@mail.ru}\\
+}
+
+
+\ignore{
+
+\author{First Author \\
+  Affiliation / Address line 1 \\
+  Affiliation / Address line 2 \\
+  Affiliation / Address line 3 \\
+  \texttt{email@domain} \\\And
+  Second Author \\
+  Affiliation / Address line 1 \\
+  Affiliation / Address line 2 \\
+  Affiliation / Address line 3 \\
+  \texttt{email@domain} \\}
+
+}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+На сегодняшний день поисковые системы (\href{https://en.wikipedia.org/wiki/Information_retrieval}{IR}) играют важную роль, как в 
+отдельных приложениях, так и во все большем росте популярности больших языковых моделей (\href{https://en.wikipedia.org/wiki/Large_language_model}{LLM}).
+От точности поиска зависят не только точность ответа, но и, другие не менее важные характеристики, такие как следование инструкциям, стилистика, и другие (см. (RAG survey) \cite{ragsurvey}).
+Среди широко известных к проектированию семантического текстового поиска подходов, зарекомендовавших себя, как ``понимающие'' контекст, являются либо одна пред-обученная векторная модель, либо две раздельных, 
+каждая из которых сопоставляет вопрос и контекст (см. \cite{dpr}). Так, в статье \cite{dpr} описан подход из двух векторных моделей, обучающихся совместно на косинусную близость. Тем не менее, в данной статье будет рассмотрена одна модель ассиметрично сопоставляющая вектора запросам и параграфам, путем добавления соответствующего префикса.
+В большинстве задач, включая генерацию ответа через LLM, очень важно предоставить не только семантически правильные документы, но и те, которые содержат ключевые слова или фразы, необходимые для ответа на запрос, т.к. на практике большинство документов похожи, но различаются лишь в паре фраз, которые меняют их смысл полностью.
+Гибридный поиск, который совмещает в себе семантический и поиск по ключевым словам (\href{https://en.wikipedia.org/wiki/Okapi_BM25}{BM25}), путем введения параметра $\alpha \in [0..1]$, работает слишком грубо, пропуская семантические документы ($\alpha \approx 0$), или же, наоборот,
+не выдает документов, содержащих нужные ключевые слова, когда $\alpha \approx 1$. В данной статье представлен алгоритм, который позволяет учесть большую часть семантических документов, чем при обычном векторном поиске, и, в тоже время, пересечь и учесть ключевые слова среди уже семантически близких документов.
+Будет показано на разных доменах, что такой подход превосходит, как обычный векторный поиск, так и любую вариацию гибридного при разных $\alpha$, в среднем на 7\%-10\%.
+
+
+\end{abstract}
+
+
+\input{sections/fusionIR/intro.tex}
+\input{sections/fusionIR/background.tex}
+\input{sections/fusionIR/dataset.tex}
+\input{sections/fusionIR/algorithm.tex}
+\input{sections/fusionIR/metrics.tex}
+
+\bibliography{fusionIR}
+\bibliographystyle{acl_natbib}
+\clearpage %
+\appendix
+\input{sections/fusionIR/appendix.tex}
+
+\end{document}
